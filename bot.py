@@ -7,10 +7,12 @@ import json
 import toml
 from discord import Embed, Game, Status
 from discord.ext import commands
+from time import time, localtime, strftime
 
-secrets = toml.load("../secrets.toml")
-
+secrets = toml.load("./secrets.toml")
 bot = commands.Bot(command_prefix="$", description="dogecord")
+last_time = time()
+prev_quote = []
 
 @bot.event
 async def on_ready():
@@ -25,7 +27,15 @@ async def beep(ctx):
 
 @bot.command(pass_context=True)
 async def doge(ctx):
-  data = get_doge_data()
+  global last_time
+  global prev_quote
+
+  if(time() - last_time > 300): # 5 minute timeout
+    data = get_doge_data()
+    last_time = time()
+  else:
+    data = prev_quote
+
   if data == -1:
     await ctx.message.channel.send("API failure, nw")
   else:
@@ -39,8 +49,9 @@ async def doge(ctx):
     else:
       doge_color = 0xFF4325
 
+    last_updated = "Last Updated: " + strftime("%H:%M:%S", localtime(last_time)) + " UTC"
     embed = Embed(
-        title="🚀 doge report 🚀", color=doge_color
+        title="🚀 doge report 🚀", description=last_updated, color=doge_color
     )
     embed.add_field(name="current price: ", value=doge_price, inline=True)
     embed.add_field(name="percent change (1h): ", value=doge_percent1, inline=True)
@@ -64,11 +75,14 @@ def get_doge_data():
   try:
     response = session.get(url, params=parameters)
     data = json.loads(response.text)
+    prev_quote = data
     return data
   except (ConnectionError, Timeout, TooManyRedirects) as e:
     print(e)
     return -1
 
 if __name__ == '__main__':
+  prev_quote = get_doge_data()
   bot.run(secrets["disc"])
+  
   
